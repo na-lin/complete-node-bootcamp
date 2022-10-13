@@ -1,0 +1,1 @@
+this content is written by javascript code: hello world! 😄
