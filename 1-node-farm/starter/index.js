@@ -1,5 +1,6 @@
 const fs = require("fs");
 const http = require("http");
+const path = require("path");
 const url = require("url");
 // TODO 1: File module
 // // todo : read and write file synchronous way
@@ -32,6 +33,14 @@ const server = http.createServer((req, res) => {
     res.end("This is overview from server");
   } else if (pathName === "/product") {
     res.end("This is product page from server");
+  } else if (pathName === "/api") {
+    fs.readFile(`${__dirname}/dev-data/data.json`, "utf-8", (err, data) => {
+      const product = JSON.parse(data);
+      res.writeHead(200, {
+        "Content-text": "application/json",
+      });
+      res.end(data);
+    });
   } else {
     res.writeHead(404, {
       "Content-type": "text/html",
