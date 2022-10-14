@@ -27,6 +27,9 @@ const url = require("url");
 // console.log("start to reading content from file");
 
 //TODO 2: create a simple web server
+const apiData = fs.readFileSync(`${__dirname}/dev-data/data.json`, "utf-8");
+const productData = JSON.parse(apiData);
+
 const server = http.createServer((req, res) => {
   const pathName = req.url;
   if (pathName === "/" || pathName === "/overview") {
@@ -34,13 +37,10 @@ const server = http.createServer((req, res) => {
   } else if (pathName === "/product") {
     res.end("This is product page from server");
   } else if (pathName === "/api") {
-    fs.readFile(`${__dirname}/dev-data/data.json`, "utf-8", (err, data) => {
-      const product = JSON.parse(data);
-      res.writeHead(200, {
-        "Content-text": "application/json",
-      });
-      res.end(data);
+    res.writeHead(200, {
+      "Content-text": "application/json",
     });
+    res.end(apiData);
   } else {
     res.writeHead(404, {
       "Content-type": "text/html",
