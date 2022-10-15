@@ -1,5 +1,6 @@
 const fs = require("fs");
 const http = require("http");
+const { type } = require("os");
 const path = require("path");
 const url = require("url");
 // TODO 1: File module
@@ -43,7 +44,7 @@ const tempProduct = fs.readFileSync(
   "utf-8"
 );
 
-const replacePlaceHolder = function (temp, el) {
+const replaceTemplate = function (temp, el) {
   let output = temp.replace(/{%ID%}/g, el.id);
   output = output.replace(/{%PRODUCTNAME%}/g, el.productName);
   output = output.replace(/{%IMAGE%}/g, el.image);
@@ -58,11 +59,12 @@ const replacePlaceHolder = function (temp, el) {
 };
 
 const server = http.createServer((req, res) => {
-  const pathName = req.url;
+  const { query, pathname } = url.parse(req.url, true);
+
   //   overview by adding template to dynamic load json data
-  if (pathName === "/" || pathName === "/overview") {
+  if (pathname === "/" || pathname === "/overview") {
     const cards = productData
-      .map((el) => replacePlaceHolder(tempCard, el))
+      .map((el) => replaceTemplate(tempCard, el))
       .join("");
     const overviewHTML = tempOverview.replace(/{%PRODUCT-CARDS%}/, cards);
 
@@ -70,15 +72,19 @@ const server = http.createServer((req, res) => {
     res.end(overviewHTML);
 
     // product
-  } else if (pathName === "/product") {
-    res.end("This is product page from server");
+  } else if (pathname === "/product") {
+    res.writeHead(200, { "Content-type": "text/html" });
+    const product = productData[query.id];
+    const output = replaceTemplate(tempProduct, product);
+
+    res.end(output);
 
     // api
-  } else if (pathName === "/api") {
+  } else if (pathname === "/api") {
     res.writeHead(200, {
       "Content-text": "application/json",
     });
-    res.end(apiData);
+    res.end(productData);
 
     // Page not found
   } else {
