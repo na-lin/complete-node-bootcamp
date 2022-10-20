@@ -3,6 +3,8 @@ const http = require("http");
 const { type } = require("os");
 const path = require("path");
 const url = require("url");
+
+const replaceTemplate = require("./modules/replaceTemplate");
 // TODO 1: File module
 // // todo : read and write file synchronous way
 
@@ -43,20 +45,6 @@ const tempProduct = fs.readFileSync(
   `${__dirname}/templates/template-product.html`,
   "utf-8"
 );
-
-const replaceTemplate = function (temp, el) {
-  let output = temp.replace(/{%ID%}/g, el.id);
-  output = output.replace(/{%PRODUCTNAME%}/g, el.productName);
-  output = output.replace(/{%IMAGE%}/g, el.image);
-  output = output.replace(/{%FROM%}/g, el.from);
-  output = output.replace(/{%NUTRIENTS%}/g, el.nutrients);
-  output = output.replace(/{%QUANTITY%}/g, el.quantity);
-  output = output.replace(/{%PRICE%}/g, el.price);
-  output = output.replace(/{%DESCRIPTION%}/g, el.description);
-
-  if (!el.organic) output = output.replace(/{%NON-ORGANIC%}/g, "not-organic");
-  return output;
-};
 
 const server = http.createServer((req, res) => {
   const { query, pathname } = url.parse(req.url, true);
