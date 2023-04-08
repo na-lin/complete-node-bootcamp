@@ -15,14 +15,14 @@ router.route('/monthly-plan/:year').get(tourController.getMonthlyPlan);
 
 router
   .route('/')
-  .get(authController.protect, tourController.getAllTours)
+  .get(authController.protect, tourController.getAllTours) // protect route
   .post(tourController.createTour);
 
 router
   .route('/:id')
   .get(tourController.getTour)
   .patch(tourController.updateTour)
-  .delete(
+  .delete( // restrict interact with resource
     authController.protect,
     authController.restrictTo('admin', 'lead-guide'),
     tourController.deleteTour

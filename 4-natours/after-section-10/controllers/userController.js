@@ -23,6 +23,7 @@ exports.getAllUsers = catchAsync(async (req, res, next) => {
   });
 });
 
+// update the current user data
 exports.updateMe = catchAsync(async (req, res, next) => {
   // 1) Create error if user POSTs password data
   if (req.body.password || req.body.passwordConfirm) {
@@ -35,11 +36,14 @@ exports.updateMe = catchAsync(async (req, res, next) => {
   }
 
   // 2) Filtered out unwanted fields names that are not allowed to be updated
+  // only include name, email which is allowed to update
   const filteredBody = filterObj(req.body, 'name', 'email');
 
   // 3) Update user document
+  // use update instead of save becasue don't give some mandotry field
+  // filterbody, is the data gona to update
   const updatedUser = await User.findByIdAndUpdate(req.user.id, filteredBody, {
-    new: true,
+    new: true, //return the update object
     runValidators: true
   });
 

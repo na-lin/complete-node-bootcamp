@@ -6,6 +6,7 @@ const catchAsync = require('./../utils/catchAsync');
 const AppError = require('./../utils/appError');
 const sendEmail = require('./../utils/email');
 
+// todo 1: create a token
 const signToken = id => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN
@@ -14,6 +15,7 @@ const signToken = id => {
 
 const createSendToken = (user, statusCode, res) => {
   const token = signToken(user._id);
+
   const cookieOptions = {
     expires: new Date(
       Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
@@ -26,7 +28,7 @@ const createSendToken = (user, statusCode, res) => {
 
   // Remove password from output
   user.password = undefined;
-
+  // todo : send token to client
   res.status(statusCode).json({
     status: 'success',
     token,
@@ -35,53 +37,72 @@ const createSendToken = (user, statusCode, res) => {
     }
   });
 };
+// ! old singup , everyone can specify the role, security flaw
+// const new User = await User.create(req.body);
+
 
 exports.signup = catchAsync(async (req, res, next) => {
+  // ! fix security flow
   const newUser = await User.create({
     name: req.body.name,
     email: req.body.email,
     password: req.body.password,
     passwordConfirm: req.body.passwordConfirm
   });
-
+  //when user signup for web, will auto log in
+  // log use in as soon as user signin by JWT
+  // todo 1: npm i jsonwebtoken
   createSendToken(newUser, 201, res);
 });
 
 exports.login = catchAsync(async (req, res, next) => {
+  // todo 0: get user login infor
   const { email, password } = req.body;
 
-  // 1) Check if email and password exist
+  // todo 1) Check if email and password exist
   if (!email || !password) {
+    // use global error handling
     return next(new AppError('Please provide email and password!', 400));
   }
-  // 2) Check if user exists && password is correct
+  // todo 2) Check if user exists && password is correct
+  // never show up password to client by add select in userModel.js
+  // explity select password
   const user = await User.findOne({ email }).select('+password');
-
+// use bcrypt to compare origin password with hashed password
   if (!user || !(await user.correctPassword(password, user.password))) {
     return next(new AppError('Incorrect email or password', 401));
   }
 
-  // 3) If everything ok, send token to client
+  // todo 3) If everything ok, send token to client
   createSendToken(user, 200, res);
 });
 
+// todo: to protect tour request
 exports.protect = catchAsync(async (req, res, next) => {
-  // 1) Getting token and check of it's there
+  // todo 1) Getting token and check of it's there
   let token;
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith('Bearer')
   ) {
+    // authorization: 'Bearer tokenvalue'
     token = req.headers.authorization.split(' ')[1];
   }
-
+// handle error when no token send with request which mean no log in
   if (!token) {
     return next(
+      // 401 = unauthorized
       new AppError('You are not logged in! Please log in to get access.', 401)
     );
   }
 
-  // 2) Verification token
+  // todo 2) Verification token :
+  //convert jwt.verify to return promise by node build-in primisy function
+  // promisify(jwt.verify) , passing in a callback function, return a async funtion then call it
+  // jwt.verify(token, process.env.JWT_SECRET) => need callback function
+  // decoded = payload
+  // todo : handle error in gloabl errorController by error.name
+  //payload is modified or token expired
   const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
 
   // 3) Check if user still exists
@@ -103,19 +124,22 @@ exports.protect = catchAsync(async (req, res, next) => {
   }
 
   // GRANT ACCESS TO PROTECTED ROUTE
+  // put user data to req
   req.user = currentUser;
   next();
 });
-
+// pass argument to middleware usually can't do
+// create a wrapper function to return the middleware function we want to create
 exports.restrictTo = (...roles) => {
   return (req, res, next) => {
     // roles ['admin', 'lead-guide']. role='user'
     if (!roles.includes(req.user.role)) {
       return next(
+        // 403 = forbidden
         new AppError('You do not have permission to perform this action', 403)
       );
     }
-
+// Grant access to protected Route
     next();
   };
 };
@@ -129,9 +153,14 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
 
   // 2) Generate the random reset token
   const resetToken = user.createPasswordResetToken();
+  // this.field = value, modify but not save to db
+
+  // save to db but not mandatory data -> fix by turn off validator
   await user.save({ validateBeforeSave: false });
 
   // 3) Send it to user's email
+  // resetURL = the URL page where user can reset password
+  // req.protocal == http / https
   const resetURL = `${req.protocol}://${req.get(
     'host'
   )}/api/v1/users/resetPassword/${resetToken}`;
@@ -150,6 +179,7 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
       message: 'Token sent to email!'
     });
   } catch (err) {
+    // reset token : modify & save to db
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
     await user.save({ validateBeforeSave: false });
@@ -168,24 +198,29 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
     .update(req.params.token)
     .digest('hex');
 
+    // get user based on resetToken
   const user = await User.findOne({
     passwordResetToken: hashedToken,
-    passwordResetExpires: { $gt: Date.now() }
+    passwordResetExpires: { $gt: Date.now() } //make sure resetToken not expire
   });
 
   // 2) If token has not expired, and there is user, set the new password
   if (!user) {
+    // 400 - bad request
     return next(new AppError('Token is invalid or has expired', 400));
   }
+  // modify and save it to db
   user.password = req.body.password;
   user.passwordConfirm = req.body.passwordConfirm;
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
-  await user.save();
+  await user.save(); //validator auto work to confirm password
+  // use save() instead of update because want to run validator for password
 
   // 3) Update changedPasswordAt property for the user
   // 4) Log the user in, send JWT
   createSendToken(user, 200, res);
+  // create a token by jwt, then send it to client
 });
 
 exports.updatePassword = catchAsync(async (req, res, next) => {
